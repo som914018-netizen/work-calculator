@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حساب الأجور</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body { background: #f0f4f3; padding: 10px; padding-bottom: 80px; color: #222; }
+  .card { background: white; border-radius: 12px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); }
+  h2 { font-size: 16px; margin-bottom: 8px; color: #00796b; }
+  .btn { border: none; border-radius: 8px; padding: 12px; color: white; font-size: 15px; font-weight: bold; cursor: pointer; }
+  .btn-green { background: #4caf50; }
+  .btn-red { background: #f44336; }
+  .btn-teal { background: #009688; }
+  .btn-blue { background: #2196f3; }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+  .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .cal-header button { background: #e0f2f1; border: none; padding: 8px 14px; border-radius: 8px; font-size: 16px; cursor: pointer; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-day-name { text-align: center; font-size: 11px; font-weight: bold; color: #666; padding: 4px 0; }
+  .cal-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-size: 13px; font-weight: bold; background: white; border: 1px solid #ddd; cursor: pointer; }
+  .cal-cell.present { background: #4caf50; color: white; border-color: #4caf50; }
+  .cal-cell.absent { background: #f44336; color: white; border-color: #f44336; }
+  .cal-cell.today { border: 2px solid #2196f3; }
+  .cal-cell.empty { visibility: hidden; }
+  .result-card { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9f9f9; border-radius: 10px; margin-bottom: 8px; border-right: 5px solid #009688; }
+  .result-card .title { font-weight: bold; font-size: 14px; }
+  .result-card .subtitle { font-size: 11px; color: #888; }
+  .result-card .value { font-weight: bold; font-size: 15px; }
+  .progress-bar { height: 12px; background: #e0e0e0; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+  .progress-fill { height: 100%; background: #2196f3; transition: width 0.3s; }
+  .goal-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #eee; }
+  .month-block { background: #f5f5f5; padding: 10px; border-radius: 8px; margin-bottom: 8px; font-size: 12px; }
+  .month-block b { font-size: 14px; }
+  .month-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .month-tags span { background: white; padding: 3px 8px; border-radius: 12px; }
+  .log-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; }
+  .log-item .status { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; }
+  .delete-btn { background: #ffebee; color: #c62828; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+  .legend { display: flex; gap: 12px; justify-content: center; margin-top: 8px; font-size: 12px; }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend span::before { content: ''; width: 12px; height: 12px; border-radius: 3px; }
+  .legend .g::before { background: #4caf50; }
+  .legend .r::before { background: #f44336; }
+  .legend .w::before { background: white; border: 1px solid #ccc; }
+  .today-box { background: #e0f2f1; padding: 14px; border-radius: 12px; text-align: center; margin-bottom: 12px; }
+  .today-box h3 { font-size: 16px; margin-bottom: 10px; }
+  input[type=number] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; }
+  .section-title { font-size: 17px; font-weight: bold; margin: 14px 0 8px; color: #00796b; }
+</style>
+</head>
+<body>
+
+<!-- بطاقة اليوم -->
+<div class="today-box" id="todayBox"></div>
+
+<!-- التقويم -->
+<div class="card">
+  <div class="cal-header">
+    <button onclick="changeMonth(-1)">◀</button>
+    <b id="monthLabel"></b>
+    <button onclick="changeMonth(1)">▶</button>
+  </div>
+  <div class="cal-grid" id="calGrid"></div>
+  <div class="legend">
+    <span class="g">حاضر</span>
+    <span class="r">غائب</span>
+    <span class="w">غير مسجل</span>
+  </div>
+</div>
+
+<!-- الهدف المالي -->
+<div class="card">
+  <h2>🎯 الهدف المالي</h2>
+  <div style="display:flex;gap:8px;margin-bottom:8px;">
+    <input type="number" id="goalInput" placeholder="اكتب هدفك بالدينار">
+    <button class="btn btn-blue" onclick="saveGoal()">حفظ</button>
+  </div>
+  <div id="goalResult"></div>
+</div>
+
+<!-- النتائج -->
+<div class="card">
+  <h2>💰 حسابات الشهر (المعروض)</h2>
+  <div id="results"></div>
+</div>
+
+<!-- الغياب -->
+<div class="card">
+  <h2>📊 الإحصائيات</h2>
+  <div id="stats" style="display:flex;justify-content:space-around;text-align:center;padding:10px 0;"></div>
+</div>
+
+<!-- مقارنة الأشهر -->
+<div class="card">
+  <h2>📈 مقارنة الأشهر</h2>
+  <div id="monthsComparison"></div>
+</div>
+
+<!-- سجل الأيام -->
+<div class="card">
+  <h2>📋 سجل الأيام</h2>
+  <div id="logList"></div>
+</div>
+
+<script>
+const PRICE_NORMAL = 1227;
+const PRICE_FRIDAY = 2454;
+const PRICE_SATURDAY = 1840;
+const PRICE_PRIME = 180;
+
+let days = JSON.parse(localStorage.getItem('work_days') || '[]');
+let goal = parseFloat(localStorage.getItem('goal') || '0');
+let viewMonth = new Date();
+
+function save() { localStorage.setItem('work_days', JSON.stringify(days)); }
+function saveGoal() {
+  const v = parseFloat(document.getElementById('goalInput').value) || 0;
+  goal = v;
+  localStorage.setItem('goal', v.toString());
+  render();
+  alert('✅ تم حفظ الهدف: ' + v + ' دج');
+}
+
+function fmt(d) {
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function dayType(d) {
+  if (d.getDay() === 5) return 'friday';
+  if (d.getDay() === 6) return 'saturday';
+  return 'normal';
+}
+function findDay(dateStr) { return days.find(d => d.date === dateStr); }
+function dayName(d) {
+  const n = ['الأحد','الإثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  return n[d.getDay()];
+}
+function monthName(m) {
+  const n = ['جانفي','فيفري','مارس','أفريل','ماي','جوان','جويلية','أوت','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  return n[m];
+}
+
+function markDay(date, present) {
+  const s = fmt(date);
+  days = days.filter(d => d.date !== s);
+  days.push({ date: s, type: dayType(date), present: present });
+  days.sort((a,b) => a.date.localeCompare(b.date));
+  save();
+  render();
+}
+function removeDay(dateStr) {
+  days = days.filter(d => d.date !== dateStr);
+  save();
+  render();
+}
+
+function compute(daysList) {
+  let c = { monthly:0, weekend:0, prime:0, presentDays:0, absentDays:0 };
+  let firstSatUsed = false;
+  for (const d of daysList) {
+    if (!d.present) { c.absentDays++; continue; }
+    c.presentDays++;
+    c.prime += PRICE_PRIME;
+    if (d.type === 'normal') c.monthly += PRICE_NORMAL;
+    else if (d.type === 'friday') c.weekend += PRICE_FRIDAY;
+    else if (d.type === 'saturday') {
+      if (!firstSatUsed) { c.monthly += PRICE_SATURDAY; firstSatUsed = true; }
+      else c.weekend += PRICE_SATURDAY;
+    }
+  }
+  c.allWithoutMonthly = c.weekend + c.prime;
+  c.allWithMonthly = c.monthly + c.weekend + c.prime;
+  return c;
+}
+
+function changeMonth(dir) {
+  viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + dir, 1);
+  render();
+}
+
+function renderToday() {
+  const today = new Date();
+  const s = fmt(today);
+  const day = findDay(s);
+  const box = document.getElementById('todayBox');
+  let html = `<h3>${dayName(today)} ${today.getDate()}/${today.getMonth()+1}/${today.getFullYear()}</h3>`;
+  if (!day) {
+    html += `<div class="row">
+      <button class="btn btn-green" onclick="markDay(new Date(), true)">✅ حاضر</button>
+      <button class="btn btn-red" onclick="markDay(new Date(), false)">❌ غائب</button>
+    </div>`;
+  } else {
+    html += `<div style="display:flex;align-items:center;justify-content:center;gap:12px;">
+      <b style="color:${day.present ? '#4caf50' : '#f44336'};font-size:16px;">${day.present ? '✅ حاضر' : '❌ غائب'}</b>
+      <button class="delete-btn" onclick="removeDay('${s}')">🗑️ حذف</button>
+    </div>`;
+  }
+  box.innerHTML = html;
+}
+
+function renderCalendar() {
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  document.getElementById('monthLabel').textContent = monthName(m) + ' ' + y;
+  const first = new Date(y, m, 1);
+  const last = new Date(y, m+1, 0);
+  const start = first.getDay(); // 0=الأحد
+  // نحوّل للبداية بالإثنين: الإثنين=1..الأحد=7
+  const offset = start === 0 ? 6 : start - 1;
+  const daysInMonth = last.getDate();
+  const names = ['إث','ثل','أر','خم','جم','سب','أح'];
+  let html = names.map(n => `<div class="cal-day-name">${n}</div>`).join('');
+  for (let i = 0; i < offset; i++) html += `<div class="cal-cell empty"></div>`;
+  const todayS = fmt(new Date());
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(y, m, d);
+    const ds = fmt(date);
+    const wd = findDay(ds);
+    let cls = 'cal-cell';
+    if (wd) cls += wd.present ? ' present' : ' absent';
+    if (ds === todayS) cls += ' today';
+    html += `<div class="${cls}" onclick="openDay('${ds}')">${d}</div>`;
+  }
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+function openDay(dateStr) {
+  const wd = findDay(dateStr);
+  const p = dateStr.split('-');
+  const dt = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  if (wd) {
+    if (confirm(`${dayName(dt)} ${dt.getDate()}/${dt.getMonth()+1}\n\nالحالة: ${wd.present ? 'حاضر ✅' : 'غائب ❌'}\n\nهل تريد حذف هذا التسجيل؟`)) {
+      removeDay(dateStr);
+    }
+  } else {
+    const choice = prompt(`${dayName(dt)} ${dt.getDate()}/${dt.getMonth()+1}\n\nاكتب:\n1 = حاضر\n2 = غائب`);
+    if (choice === '1') markDay(dt, true);
+    else if (choice === '2') markDay(dt, false);
+  }
+}
+
+function renderResults(c) {
+  const items = [
+    { t:'1️⃣ الشهرية', s:'أيام عادية + أول سبت', v:c.monthly, col:'#009688' },
+    { t:'2️⃣ الويكاند', s:'الجمعة + السبت الباقية', v:c.weekend, col:'#ff9800' },
+    { t:'3️⃣ البريمة', s:'180 دج × كل يوم عمل', v:c.prime, col:'#9c27b0' },
+    { t:'4️⃣ الكل بدون شهرية', s:'ويكاند + بريمة', v:c.allWithoutMonthly, col:'#2196f3' },
+    { t:'5️⃣ الكل مع شهرية', s:'شهرية + ويكاند + بريمة', v:c.allWithMonthly, col:'#4caf50' },
+  ];
+  document.getElementById('results').innerHTML = items.map(i =>
+    `<div class="result-card" style="border-right-color:${i.col}">
+      <div><div class="title">${i.t}</div><div class="subtitle">${i.s}</div></div>
+      <div class="value" style="color:${i.col}">${i.v.toFixed(0)} دج</div>
+    </div>`
+  ).join('');
+}
+
+function renderStats(c) {
+  document.getElementById('stats').innerHTML = `
+    <div><div style="font-size:20px;font-weight:bold;color:#4caf50">${c.presentDays}</div><div style="font-size:11px;color:#888">حضور</div></div>
+    <div><div style="font-size:20px;font-weight:bold;color:#f44336">${c.absentDays}</div><div style="font-size:11px;color:#888">غياب</div></div>
+    <div><div style="font-size:20px;font-weight:bold;color:#2196f3">${c.allWithMonthly.toFixed(0)}</div><div style="font-size:11px;color:#888">المجموع</div></div>
+  `;
+}
+
+function renderGoal(c) {
+  const saved = c.allWithoutMonthly;
+  const remaining = Math.max(0, goal - saved);
+  const dailyAvg = c.presentDays > 0 ? saved / c.presentDays : 0;
+  const daysNeeded = dailyAvg > 0 && remaining > 0 ? Math.ceil(remaining / dailyAvg) : 0;
+  const progress = goal > 0 ? Math.min(1, saved / goal) : 0;
+  let html = '';
+  if (goal <= 0) {
+    html = `<div style="color:#888;text-align:center;padding:10px;">لم تحدد هدفاً بعد. اكتب المبلغ واحفظ.</div>`;
+  } else {
+    html = `
+      <div style="font-size:13px;">الهدف: <b>${goal.toFixed(0)} دج</b></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${(progress*100).toFixed(1)}%"></div></div>
+      <div style="font-size:12px;color:#888;text-align:center;">${(progress*100).toFixed(1)}% مكتمل</div>
+      <div class="goal-row"><span>💰 المُدخر (ويكاند + بريمة)</span><b style="color:#4caf50">${saved.toFixed(0)} دج</b></div>
+      <div class="goal-row"><span>📉 الباقي للهدف</span><b style="color:#f44336">${remaining.toFixed(0)} دج</b></div>
+      <div class="goal-row"><span>📊 متوسط الدخل اليومي</span><b style="color:#009688">${dailyAvg.toFixed(0)} دج</b></div>
+      <div class="goal-row"><span>📅 كم يوم تحتاج</span><b style="color:#9c27b0">${daysNeeded} يوم</b></div>
+    `;
+  }
+  document.getElementById('goalResult').innerHTML = html;
+  if (goal > 0) document.getElementById('goalInput').value = goal;
+}
+
+function renderMonthComparison() {
+  const byMonth = {};
+  for (const d of days) {
+    const k = d.date.substring(0, 7);
+    (byMonth[k] = byMonth[k] || []).push(d);
+  }
+  const keys = Object.keys(byMonth).sort().reverse();
+  if (keys.length === 0) {
+    document.getElementById('monthsComparison').innerHTML = '<div style="color:#888;text-align:center;">لا توجد بيانات بعد</div>';
+    return;
+  }
+  document.getElementById('monthsComparison').innerHTML = keys.map(k => {
+    const c = compute(byMonth[k]);
+    const p = k.split('-');
+    return `<div class="month-block">
+      <b>${monthName(parseInt(p[1])-1)} ${p[0]}</b>
+      <div class="month-tags">
+        <span style="color:#009688">شهرية: ${c.monthly.toFixed(0)}</span>
+        <span style="color:#ff9800">ويكاند: ${c.weekend.toFixed(0)}</span>
+        <span style="color:#9c27b0">بريمة: ${c.prime.toFixed(0)}</span>
+        <span style="color:#2196f3">بدون شهرية: ${c.allWithoutMonthly.toFixed(0)}</span>
+        <span style="color:#4caf50;font-weight:bold">مع شهرية: ${c.allWithMonthly.toFixed(0)}</span>
+        <span style="color:#4caf50">حضور: ${c.presentDays}</span>
+        <span style="color:#f44336">غياب: ${c.absentDays}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderLog() {
+  if (days.length === 0) {
+    document.getElementById('logList').innerHTML = '<div style="color:#888;text-align:center;padding:10px;">لا توجد أيام مسجلة</div>';
+    return;
+  }
+  const sorted = [...days].sort((a,b) => b.date.localeCompare(a.date));
+  document.getElementById('logList').innerHTML = sorted.map(d => {
+    const p = d.date.split('-');
+    const dt = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+    const typeLabel = d.type === 'friday' ? 'جمعة' : d.type === 'saturday' ? 'سبت' : 'عادي';
+    return `<div class="log-item">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div class="status" style="background:${d.present ? '#4caf50' : '#f44336'}">${d.present ? '✓' : '✗'}</div>
+        <div><div style="font-weight:bold;font-size:14px;">${dayName(dt)} ${dt.getDate()}/${dt.getMonth()+1}</div>
+        <div style="font-size:11px;color:#888;">${typeLabel} • ${d.present ? 'حاضر' : 'غائب'}</div></div>
+      </div>
+      <button class="delete-btn" onclick="removeDay('${d.date}')">🗑️</button>
+    </div>`;
+  }).join('');
+}
+
+function render() {
+  renderToday();
+  renderCalendar();
+  const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+  const monthDays = days.filter(d => {
+    const p = d.date.split('-');
+    return parseInt(p[0]) === y && parseInt(p[1])-1 === m;
+  });
+  const c = compute(monthDays);
+  renderResults(c);
+  renderStats(c);
+  renderGoal(c);
+  renderMonthComparison();
+  renderLog();
+}
+
+render();
+</script>
+</body>
+</html>
