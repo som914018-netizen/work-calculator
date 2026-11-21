@@ -1,0 +1,15 @@
+{
+  "name": "حساب الأجور",
+  "short_name": "الأجور",
+  "start_url": "Khadma.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2438/2438078.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
